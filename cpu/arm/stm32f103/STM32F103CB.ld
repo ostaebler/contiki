@@ -1,119 +1,169 @@
+/*
+*****************************************************************************
+**
+**  File        : stm32_flash.ld
+**
+**  Abstract    : Linker script for STM32F10x Device.
+**
+**                Set heap size, stack size and stack location according
+**                to application requirements.
+**
+**                Set memory bank area and size if external memory is used.
+**
+**  Target      : STMicroelectronics STM32
+**
+**  Environment : Atollic TrueSTUDIO(R)
+**
+**  Distribution: The file is distributed “as is,” without any warranty
+**                of any kind.
+**
+**  (c)Copyright Atollic AB.
+**  You may use this file as-is or modify it according to the needs of your
+**  project. Distribution of this file (unmodified or modified) is not
+**  permitted. Atollic AB permit registered Atollic TrueSTUDIO(R) users the
+**  rights to distribute the assembled, compiled & linked contents of this
+**  file as part of an application binary file, provided that it is built
+**  using the Atollic TrueSTUDIO(R) toolchain.
+**
+*****************************************************************************
+*/
+
+/* Entry Point */
+ENTRY(Reset_Handler)
+
+/* Highest address of the user mode stack */
+_estack = 0x20002000;    /* end of 8K RAM */
+
+/* Generate a link error if heap and stack don't fit into RAM */
+_Min_Heap_Size = 0;      /* required amount of heap  */
+_Min_Stack_Size = 0x100; /* required amount of stack */
+
+/* Specify the memory areas */
 MEMORY
 {
-  CODE (rx) : ORIGIN = 0x8000000, LENGTH = 128K
-  DATA (xrw) : ORIGIN = 0x20000000, LENGTH = 20K
+  FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 128K
+  RAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 20K	/* also change _estack above */
+  MEMORY_B1 (rx)  : ORIGIN = 0x60000000, LENGTH = 0K
 }
 
-/* Section Definitions */
-
+/* Define output sections */
 SECTIONS
 {
-
-/* Make sure the vector table is at address 0 */
-
-.vectrom :
-{
-	KEEP(*(.isr_vector))
-} >CODE =0
-
-.text :
-{
-	KEEP(*(.init))
-	*(.text .text.*)
-	KEEP(*(.fini))
-} >CODE =0
-
-. = ALIGN(4);
-
-.rodata :
+  /* The startup code goes first into FLASH */
+  .isr_vector :
   {
-   	*(.rodata .rodata.*)
-	*(.gnu.linkonce.r.*)
-  } >CODE
+    . = ALIGN(4);
+    KEEP(*(.isr_vector)) /* Startup code */
+    . = ALIGN(4);
+  } >FLASH
 
-  _etext = . ;
-  PROVIDE (etext = .);
-   
-  .data :
+  /* The program code and other data goes into FLASH */
+  .text :
   {
-    _data = . ;
-    *(.data)
-    _edata = . ;
-    PROVIDE (edata = .);
-  } >DATA AT >CODE
+    . = ALIGN(4);
+    *(.text)           /* .text sections (code) */
+    *(.text*)          /* .text* sections (code) */
+    *(.rodata)         /* .rodata sections (constants, strings, etc.) */
+    *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
+    *(.glue_7)         /* glue arm to thumb code */
+    *(.glue_7t)        /* glue thumb to arm code */
+
+    KEEP (*(.init))
+    KEEP (*(.fini))
+
+    . = ALIGN(4);
+    _etext = .;        /* define a global symbols at end of code */
+  } >FLASH
+
+
+   .ARM.extab   : { *(.ARM.extab* .gnu.linkonce.armextab.*) } >FLASH
+    .ARM : {
+    __exidx_start = .;
+      *(.ARM.exidx*)
+      __exidx_end = .;
+    } >FLASH
+
+  .ARM.attributes : { *(.ARM.attributes) } > FLASH
+
+  .preinit_array     :
+  {
+    PROVIDE_HIDDEN (__preinit_array_start = .);
+    KEEP (*(.preinit_array*))
+    PROVIDE_HIDDEN (__preinit_array_end = .);
+  } >FLASH
+  .init_array :
+  {
+    PROVIDE_HIDDEN (__init_array_start = .);
+    KEEP (*(SORT(.init_array.*)))
+    KEEP (*(.init_array*))
+    PROVIDE_HIDDEN (__init_array_end = .);
+  } >FLASH
+  .fini_array :
+  {
+    PROVIDE_HIDDEN (__fini_array_start = .);
+    KEEP (*(.fini_array*))
+    KEEP (*(SORT(.fini_array.*)))
+    PROVIDE_HIDDEN (__fini_array_end = .);
+  } >FLASH
+
+  /* used by the startup to initialize data */
+  _sidata = .;
+
+  /* Initialized data sections goes into RAM, load LMA copy after code */
+  .data : AT ( _sidata )
+  {
+    . = ALIGN(4);
+    _sdata = .;        /* create a global symbol at data start */
+    *(.data)           /* .data sections */
+    *(.data*)          /* .data* sections */
+
+    . = ALIGN(4);
+    _edata = .;        /* define a global symbol at data end */
+  } >RAM
+
+  /* Uninitialized data section */
   . = ALIGN(4);
-
-
-/* .bss section which is used for uninitialized data */
-
   .bss :
   {
-    __bss_start = . ;
-    __bss_start__ = . ;
+    /* This is used by the startup in order to initialize the .bss secion */
+    _sbss = .;         /* define a global symbol at bss start */
+    __bss_start__ = _sbss;
     *(.bss)
+    *(.bss*)
     *(COMMON)
-    __bss_end = . ;	
-    __bss_end__ = . ;
-    *(.noinit)
-  } >DATA
-  . = ALIGN(4);
-  
-   _end = .;
-  PROVIDE (end = .);
 
-Main_Stack_Size = 0x00000200;
-Process_Stack_Size = 0x00000200;
-
-Stack_Size = Main_Stack_Size + Process_Stack_Size;
-  .stack ORIGIN(DATA) + LENGTH(DATA) - Stack_Size : 
-  {
-    __stack_start__ = . ;
-    Main_Stack_Start = . ;
-    . += Main_Stack_Size;
-    Main_Stack_End = . ;	
-    Process_Stack_Start = . ;
-    . += Process_Stack_Size;
-    Process_Stack_End = . ;	
     . = ALIGN(4);
-    __stack_end__ = . ;
-    Top_Stack = .;
-  } >DATA
+    _ebss = .;         /* define a global symbol at bss end */
+    __bss_end__ = _ebss;
+  } >RAM
 
-__heap_start__ = __bss_end__ ;
-__heap_end__ = __stack_start__ ;
+  PROVIDE ( end = _ebss );
+  PROVIDE ( _end = _ebss );
 
+  /* User_heap_stack section, used to check that there is enough RAM left */
+  ._user_heap_stack :
+  {
+    . = ALIGN(4);
+    . = . + _Min_Heap_Size;
+    . = . + _Min_Stack_Size;
+    . = ALIGN(4);
+  } >RAM
 
-  /* Stabs debugging sections.  */
-  .stab          0 : { *(.stab) }
-  .stabstr       0 : { *(.stabstr) }
-  .stab.excl     0 : { *(.stab.excl) }
-  .stab.exclstr  0 : { *(.stab.exclstr) }
-  .stab.index    0 : { *(.stab.index) }
-  .stab.indexstr 0 : { *(.stab.indexstr) }
-  .comment       0 : { *(.comment) }
-  /* DWARF debug sections.
-     Symbols in the DWARF debugging sections are relative to the beginning
-     of the section so we begin them at 0.  */
-  /* DWARF 1 */
-  .debug          0 : { *(.debug) }
-  .line           0 : { *(.line) }
-  /* GNU DWARF 1 extensions */
-  .debug_srcinfo  0 : { *(.debug_srcinfo) }
-  .debug_sfnames  0 : { *(.debug_sfnames) }
-  /* DWARF 1.1 and DWARF 2 */
-  .debug_aranges  0 : { *(.debug_aranges) }
-  .debug_pubnames 0 : { *(.debug_pubnames) }
-  /* DWARF 2 */
-  .debug_info     0 : { *(.debug_info .gnu.linkonce.wi.*) }
-  .debug_abbrev   0 : { *(.debug_abbrev) }
-  .debug_line     0 : { *(.debug_line) }
-  .debug_frame    0 : { *(.debug_frame) }
-  .debug_str      0 : { *(.debug_str) }
-  .debug_loc      0 : { *(.debug_loc) }
-  .debug_macinfo  0 : { *(.debug_macinfo) }
-  /* SGI/MIPS DWARF 2 extensions */
-  .debug_weaknames 0 : { *(.debug_weaknames) }
-  .debug_funcnames 0 : { *(.debug_funcnames) }
-  .debug_typenames 0 : { *(.debug_typenames) }
-  .debug_varnames  0 : { *(.debug_varnames) }
+  /* MEMORY_bank1 section, code must be located here explicitly            */
+  /* Example: extern int foo(void) __attribute__ ((section (".mb1text"))); */
+  .memory_b1_text :
+  {
+    *(.mb1text)        /* .mb1text sections (code) */
+    *(.mb1text*)       /* .mb1text* sections (code)  */
+    *(.mb1rodata)      /* read-only data (constants) */
+    *(.mb1rodata*)
+  } >MEMORY_B1
+
+  /* Remove information from the standard libraries */
+  /DISCARD/ :
+  {
+    libc.a ( * )
+    libm.a ( * )
+    libgcc.a ( * )
+  }
 }

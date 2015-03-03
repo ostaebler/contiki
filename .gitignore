@@ -74,6 +74,7 @@ contiki-cc2530dk.lib
 
 #cc65 build artifacts
 *.S
+!cpu/arm/stm32f103/*.S
 *.eth
 *.dsk
 *.2mg

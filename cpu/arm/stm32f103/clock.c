@@ -1,19 +1,22 @@
-#include <stm32f10x_map.h>
-#include <nvic.h>
+#include <stm32f10x.h>
+#include <system_stm32f10x.h>
 #include <sys/clock.h>
 #include <sys/cc.h>
 #include <sys/etimer.h>
 #include <debug-uart.h>
+#include <misc.h>
+#include <core_cm3.h>
+#include <stdio.h>
 
 static volatile clock_time_t current_clock = 0;
 static volatile unsigned long current_seconds = 0;
 static unsigned int second_countdown = CLOCK_SECOND;
 
 void
-SysTick_handler(void) __attribute__ ((interrupt));
+SysTick_Handler(void) __attribute__ ((interrupt));
 
 void
-SysTick_handler(void)
+SysTick_Handler(void)
 {
   (void)SysTick->CTRL;
   SCB->ICSR = SCB_ICSR_PENDSTCLR;
@@ -33,9 +36,10 @@ SysTick_handler(void)
 void
 clock_init()
 {
-  NVIC_SET_SYSTICK_PRI(8);
-  SysTick->LOAD = MCK/8/CLOCK_SECOND;
-  SysTick->CTRL = SysTick_CTRL_ENABLE | SysTick_CTRL_TICKINT;
+    if (SysTick_Config(SystemCoreClock / CLOCK_SECOND))
+    {
+        while(1);
+    }
 }
 
 clock_time_t
@@ -44,7 +48,6 @@ clock_time(void)
   return current_clock;
 }
 
-#if 0
 /* The inner loop takes 4 cycles. The outer 5+SPIN_COUNT*4. */
 
 #define SPIN_TIME 2 /* us */
@@ -62,7 +65,6 @@ clock_delay(unsigned int t)
 #endif
 }
 #endif
-#endif /* __MAKING_DEPS__ */
 
 unsigned long
 clock_seconds(void)

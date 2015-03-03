@@ -1,6 +1,6 @@
 #ifndef __GPIO_H__LK7NAD1HN8__
 #define __GPIO_H__LK7NAD1HN8__
-#include <stm32f10x_map.h>
+#include <stm32f10x.h>
 
 #define _GPIO_INPUT_ANALOG(h,l) 0
 
