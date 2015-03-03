@@ -10,6 +10,8 @@
 #include <etimer.h>
 #include <sys/autostart.h>
 #include <clock.h>
+#include "dev/button-sensor.h"
+#include "dev/leds.h"
 #include "uart1.h"
 
 unsigned int idle_count = 0;
@@ -19,13 +21,14 @@ main()
 {
   uart1_init(115200);
   leds_init();
-  printf("Initialising\n\r");
+  printf("Initialising\r\n");
   
   clock_init();
   process_init();
   process_start(&etimer_process, NULL);
+  process_start(&sensors_process, NULL);
   autostart_start(autostart_processes);
-  printf("Processes running\n\r");
+  printf("Processes running\r\n");
   while(1) {
     do {
     } while(process_run() > 0);

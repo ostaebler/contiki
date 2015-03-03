@@ -39,8 +39,7 @@
 
 #include "contiki.h"
 #include "blink.h"
-
-static struct etimer et_hello;
+#include "dev/button-sensor.h"
 
 #include <stdio.h> /* For printf() */
 /*---------------------------------------------------------------------------*/
@@ -51,14 +50,13 @@ PROCESS_THREAD(hello_world_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  etimer_set(&et_hello, CLOCK_SECOND / 2);
+	SENSORS_ACTIVATE(button_sensor);
 
   while(1) {
     PROCESS_WAIT_EVENT();
 
-    if(ev == PROCESS_EVENT_TIMER) {
-      printf("Hello World!\n\r");
-      etimer_reset(&et_hello);
+    if(ev == sensors_event && data == &button_sensor) {
+      printf("Hello World!\r\n");
     }   
   }
   
