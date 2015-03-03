@@ -12,7 +12,7 @@ CONTIKI_TARGET_MAIN = contiki-main.c
 endif
 
 CONTIKI_TARGET_SOURCEFILES += $(SENSORS) $(STEPPER_ROBOT) \
- $(CODEPROP_SOURCES) $(CONTIKI_TARGET_MAIN) uart1.c newlib_stub.c tim.c wdg.c
+ $(CODEPROP_SOURCES) $(CONTIKI_TARGET_MAIN) uart1.c newlib_stub.c tim.c wdg.c leds.c leds-arch.c
 
 # include $(CONTIKI)/platform/$(TARGET)/apps/Makefile.apps
 

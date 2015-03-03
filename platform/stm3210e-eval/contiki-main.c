@@ -18,6 +18,7 @@ int
 main()
 {
   uart1_init(115200);
+  leds_init();
   printf("Initialising\n\r");
   
   clock_init();

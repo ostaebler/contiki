@@ -28,6 +28,7 @@
  *
  * This file is part of the Contiki operating system.
  *
+ * $Id: hello-world.c,v 1.1 2006/10/02 21:46:46 adamdunkels Exp $
  */
 
 /**
@@ -38,30 +39,31 @@
  */
 
 #include "contiki.h"
+#include "stm32f10x_gpio.h"
+#include "leds-arch.h"
+#include <dev/leds.h>
 #include "blink.h"
 
-static struct etimer et_hello;
-
 #include <stdio.h> /* For printf() */
+
+static struct etimer et_blink;
 /*---------------------------------------------------------------------------*/
-PROCESS(hello_world_process, "Hello world process");
-AUTOSTART_PROCESSES(&hello_world_process, &blink_process);
+PROCESS(blink_process, "blink process");
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(hello_world_process, ev, data)
+
+PROCESS_THREAD(blink_process, ev, data)
 {
-  PROCESS_BEGIN();
+    PROCESS_BEGIN();
 
-  etimer_set(&et_hello, CLOCK_SECOND / 2);
+    etimer_set(&et_blink, CLOCK_SECOND / 2);
+    while(1) {
+        PROCESS_WAIT_EVENT();
 
-  while(1) {
-    PROCESS_WAIT_EVENT();
+        if(ev == PROCESS_EVENT_TIMER) {
+            leds_toggle(LEDS_ALL);
+            etimer_reset(&et_blink);
+        }
+    }
 
-    if(ev == PROCESS_EVENT_TIMER) {
-      printf("Hello World!\n\r");
-      etimer_reset(&et_hello);
-    }   
-  }
-  
-  PROCESS_END();
+    PROCESS_END();
 }
-/*---------------------------------------------------------------------------*/
