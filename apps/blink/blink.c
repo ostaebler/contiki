@@ -40,7 +40,6 @@
 
 #include "contiki.h"
 #include "stm32f10x_gpio.h"
-#include "leds-arch.h"
 #include <dev/leds.h>
 #include "blink.h"
 
