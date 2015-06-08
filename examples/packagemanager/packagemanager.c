@@ -2,13 +2,25 @@
 #include "webclient.h"
 #include "cfs/cfs.h"
 #include <stdio.h>
+#include <string.h>
 
 #define HOST "172.18.0.1"
+
+#define CHROOT "/tmp/contiki/"
+
+#define APP_STATUS_STOPPED 0
+#define APP_STATUS_INIT 1
+#define APP_STATUS_INSTALLED 2
+#define APP_STATUS_LIST 3
 
 PROCESS(packagemanager_process, "packagemanager process");
 AUTOSTART_PROCESSES(&packagemanager_process);
 
 static int file = -1;
+static int app_status = 0;
+
+const char poc_process_name[] = "hello-world";
+struct process poc_process = {};
 
 static void app_quit(void)
 {
@@ -17,11 +29,42 @@ static void app_quit(void)
   }
 }
 
+static void list_installed_packages(void)
+{
+	struct cfs_dir dir;
+	struct cfs_dirent dirent;
+	char process_name[32];
+	char process_version[16];
+
+	bzero(process_name, sizeof(process_name));
+	bzero(process_version, sizeof(process_version));
+
+	if(cfs_opendir(&dir, CHROOT) == 0) {
+		printf("Installed Packages:\n");
+		printf("Name\t\tVersion\n");
+		while(cfs_readdir(&dir, &dirent) != -1) {
+			char *dot = strrchr(dirent.name, '.');
+			if (dot && !strcmp(dot, ".elf")) {
+				char *underscore = strchr(dirent.name, '_');
+				strncpy(process_name, dirent.name, underscore-dirent.name);
+				strncpy(process_version, underscore + 1, dot-underscore-1);
+				printf("%s\t%s\n", process_name, process_version);
+			}
+		}
+	cfs_closedir(&dir);
+	printf("\n");
+	}
+}
+
 static void install_package(char *name)
 {
-	file = cfs_open(name, CFS_WRITE);
+	char newname[32] = "";
+
+	strcat(newname, CHROOT);
+	strcat(newname, name);
+	file = cfs_open(newname, CFS_WRITE);
 	if(file == -1) {
-		printf("Open error with '%s'\n", name);
+		printf("Open error with '%s'\n", newname);
 	} else {
 		if(webclient_get(HOST, 80, name) == 0) {
 			puts("Out of memory error");
@@ -97,6 +140,8 @@ webclient_datahandler(char *data, uint16_t len)
 		printf("Loading new App\n");
 #if 0
 		elfloader_load(file);
+#else
+		app_status += 1;
 #endif
 		app_quit();
 	}
@@ -111,17 +156,26 @@ PROCESS_THREAD(packagemanager_process, ev ,data)
 	PROCESS_BEGIN();
 
 	/* Allow other processes to initialize properly. */
-	for(i = 0; i < 1000; ++i)
+	for (i = 0; i < 1000; ++i)
 		PROCESS_PAUSE();
+	app_status = APP_STATUS_INIT;
 
+	/* List installed packages first */
+	list_installed_packages();
+
+	/* Install new package */
 	install_package(name);
 
-	while(1) {
+	while (app_status < APP_STATUS_INSTALLED) {
 		PROCESS_WAIT_EVENT();
 
 		if(ev == tcpip_event)
 			webclient_appcall(data);
 	}
+
+	/* List installed packages again */
+	list_installed_packages();
+	app_status += 1;
 
 	PROCESS_END();
 }
