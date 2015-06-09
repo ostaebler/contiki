@@ -56,9 +56,44 @@ static void list_installed_packages(void)
 	}
 }
 
+static void remove_package(char *name)
+{
+	struct process *p;
+	struct cfs_dir dir;
+	struct cfs_dirent dirent;
+	char newname[16] = "";
+	char newname_path[64] = CHROOT;
+
+	/* find and stop process */
+	for(p = PROCESS_LIST(); p != NULL; p = p->next) {
+		if (!strcmp(name, p->name))  {
+			printf("Stopping process %s\n", name);
+			process_exit(p);
+		}
+	}
+
+	/* Remove app file in cfs */
+	if(cfs_opendir(&dir, CHROOT) == 0) {
+		strcat(newname, name);
+		strcat(newname, ".elf");
+		while(cfs_readdir(&dir, &dirent) != -1) {
+			if (!strncmp(name, dirent.name, strlen(name))) {
+				char *dot = strrchr(dirent.name, '.');
+				if (dot && !strcmp(dot, ".elf")) {
+					strcat(newname_path, dirent.name);
+					printf("Removing %s\n", newname_path);
+					cfs_remove(newname_path);
+					break;
+				}
+			}
+		}
+		cfs_closedir(&dir);
+	}
+}
+
 static void install_package(char *name)
 {
-	char newname[32] = "";
+	char newname[64] = "";
 
 	strcat(newname, CHROOT);
 	strcat(newname, name);
@@ -141,17 +176,31 @@ webclient_datahandler(char *data, uint16_t len)
 #if 0
 		elfloader_load(file);
 #else
-		app_status += 1;
+		poc_process.name = poc_process_name;
+		process_start(&poc_process, NULL);
 #endif
 		app_quit();
+		app_status += 1;
 	}
 }
 /*-----------------------------------------------------------------------------------*/
 
+void print_processes(void)
+{
+	struct process *p;
+
+	printf("process list:\n");
+	for(p = PROCESS_LIST(); p != NULL; p = p->next) {
+		char namebuf[30];
+		strncpy(namebuf, PROCESS_NAME_STRING(p), sizeof(namebuf));
+		printf("%s\n", namebuf);
+	}
+	printf("\n");
+}
 
 PROCESS_THREAD(packagemanager_process, ev ,data)
 {
-	static char name[] = "hello-world.elf";
+	static char name[] = "hello-world_0.1.elf";
 	static int i;
 	PROCESS_BEGIN();
 
@@ -162,7 +211,9 @@ PROCESS_THREAD(packagemanager_process, ev ,data)
 
 	/* List installed packages first */
 	list_installed_packages();
+	print_processes();
 
+	printf("=================\n");
 	/* Install new package */
 	install_package(name);
 
@@ -175,7 +226,14 @@ PROCESS_THREAD(packagemanager_process, ev ,data)
 
 	/* List installed packages again */
 	list_installed_packages();
+	print_processes();
 	app_status += 1;
+	printf("=================\n");
+
+	remove_package(poc_process_name);
+
+	list_installed_packages();
+	print_processes();
 
 	PROCESS_END();
 }
